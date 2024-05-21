@@ -90,17 +90,21 @@ class P2Pro:
         '''Hilight point in image and add explanation text'''
         draw = PIL.ImageDraw.Draw(img)
         fontpath = font_manager.findfont(self.fontprops)
-        font = PIL.ImageFont.truetype(fontpath, 10)
+        font = PIL.ImageFont.truetype(fontpath, 12)
 
         draw.ellipse((x-3,y-3,x+3,y+3), outline = (255,255,255))
         draw.line(((x+3, y), (x + 5, y)), (255,255,255), 1)
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                draw.text((x + 8 + dx, y + dy), text, (64,64,64), font, anchor = 'lm')
         draw.text((x + 8, y), text, (255,255,255), font, anchor = 'lm')
     
-    def snapshot(self, scale = True, minpoint = True, maxpoint = True, midpoint = True):
+    def snapshot(self, scale = True, minpoint = True, maxpoint = True, midpoint = True, rotation = 0):
         '''Capture frame as false-color image.
         Optionally mark minimum, maximum and center temperatures and scale.
         '''
         temps = self.capture()
+        if rotation != 0: temps = np.rot90(temps, rotation)
         h, w = temps.shape
         thermimg = self.map_colors(temps)
         thermimg = thermimg.resize((w * 2, h * 2))
@@ -133,13 +137,18 @@ class P2Pro:
 
 if __name__ == '__main__':
     cam = P2Pro()
+    rotation = 0
     
     while True:
-        img = cam.snapshot()
-        cv2.imshow('P2Pro', np.array(img)[:,:,::-1])
+        img = cam.snapshot(rotation = rotation)
+        bgr = np.array(img)[:,:,::-1]
+        cv2.imshow('P2Pro', bgr)
         
-        if cv2.waitKey(50) in [ord('q'), ord('Q'), 27]:
+        key = cv2.waitKey(50)
+        if key in [ord('q'), ord('Q'), 27]:
             break
+        elif key in [ord('r'), ord('R')]:
+            rotation = (rotation + 1) % 4
         
         if cv2.getWindowProperty('P2Pro',cv2.WND_PROP_AUTOSIZE) == -1:
             break
