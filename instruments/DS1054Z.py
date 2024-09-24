@@ -14,6 +14,28 @@ import socket
 class DS1054Z:
     '''Interface to Rigol DS1054Z oscilloscope.'''
 
+    timebases = [
+        2e-9, 5e-9,
+        1e-8, 2e-8, 5e-8,
+        1e-7, 2e-7, 5e-7,
+        1e-6, 2e-6, 5e-6,
+        1e-5, 2e-5, 5e-5,
+        1e-4, 2e-4, 5e-4,
+        1e-3, 2e-3, 5e-3,
+        1e-2, 2e-2, 5e-2,
+        1e-1, 2e-1, 5e-1,
+        1e-0, 2e-0, 5e-0,
+        1e+1, 2e+1, 5e+1
+    ]
+
+    vertical_scales = [
+        1e-2, 2e-2, 5e-2,
+        1e-1, 2e-1, 5e-1,
+        1e-0, 2e-0, 5e-0,
+        1e+1, 2e+1, 5e+1,
+        1e+2
+    ]
+
     def __init__(self, path = "TCPIP::scope::5555::SOCKET"):
         self.path = path
     
@@ -35,7 +57,10 @@ class DS1054Z:
         
         return port
     
-    def set_timebase(self, timebase):
+    def set_timebase(self, timebase, round = True):
+        if round:
+            timebase = min(self.timebases, key = lambda x: abs(x - timebase))
+
         self.port.write("TIM:SCAL %s" % timebase)
     
     def config_channel(self, channel, scale, ac_mode = False, probe_scale = 10, bwlimit = False, display = True):
@@ -46,6 +71,12 @@ class DS1054Z:
         self.port.write("CHAN%d:BWLIMIT %s" % (channel, '20M' if bwlimit else 'OFF'))
         self.port.write("CHAN%d:SCAL %s" % (channel, scale))
     
+    def set_channel_scale(self, channel, scale, round = True):
+        if round:
+            scale = min(self.vertical_scales, key = lambda x: abs(x - scale))
+
+        self.port.write("CHAN%d:SCAL %s" % (channel, scale))
+
     def autoscale(self):
         self.port.write("AUTOSCALE")
         
@@ -170,22 +201,27 @@ class DS1054Z:
 
         return (numpy.array(alldata) - sample_ref - sample_offset) * sample_scale
 
-    def dft_at_freq(self, channel, freq):
+    def dft_at_freq(self, channel, freq, use_raw = False):
         '''Calculate amplitude and phase at given frequency from
-        data fetched from screen buffer.'''
+        data fetched from screen buffer or raw buffer.'''
+
+        if use_raw:
+            data = self.fetch_data_raw(channel)
+        else:
+            data = self.fetch_data(channel)
+
         freq = float(freq)
         sample_interval = self.sample_interval()
         samples_per_period = round((1.0 / freq) / sample_interval)
-        
+
         if samples_per_period < 5:
-            raise Exception("DS1054Z too large timestep %f for freq %f" % (sample_interval, freq))
+            raise Exception("DS1054Z too large timestep %g for freq %f" % (sample_interval, freq))
         
-        data = self.fetch_data(channel)
         periods = len(data) // samples_per_period
         samples = periods * samples_per_period
         
         if periods < 1:
-            raise Exception("DS1054Z too small timestep %f for freq %f" % (sample_interval, freq))
+            raise Exception("DS1054Z too small timestep %g for freq %f" % (sample_interval, freq))
 
         exp = numpy.exp(math.tau * 1j * numpy.linspace(0, periods, samples, endpoint = False))
         dft = numpy.sum(numpy.multiply(exp, data[:samples])) / samples
@@ -199,7 +235,7 @@ if __name__ == '__main__':
     import sys
     d = DS1054Z()
     
-    d.screenshot().save("test.png")
+    d.screenshot().save("ds1054z.png")
     
     #start = time.time()
 #    data = d.fetch_data_raw(1, end = 1000000)

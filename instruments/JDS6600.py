@@ -75,7 +75,7 @@ class JDS6600:
         connection.write(b":r00=.\r\n")
         resp = connection.readline()
         
-        if '=' not in resp:
+        if b'=' not in resp:
             raise Exception("JDS6600: Unexpected response: %s" % resp)
         
         return connection

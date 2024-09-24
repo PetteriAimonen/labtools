@@ -48,8 +48,12 @@ class ET5410:
     def measure_current(self):
         return float(self.port.query("MEAS:CURR?").strip("R"))
 
+    def unlock(self):
+        self.port.query("SYST:LOCA")
+
 if __name__ == '__main__':
     p = ET5410()
     while True:
         print("%6.3f V, %6.3f A" % (p.measure_voltage(), p.measure_current()))
+        p.unlock()
         time.sleep(1)
