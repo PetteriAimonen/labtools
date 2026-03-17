@@ -1,6 +1,7 @@
 import pyvisa as visa
 import functools
 import time
+import sys
 
 class ET5410:
     '''Interface to MUSTOOL / East Tester ET5410A+ electronic load.'''
@@ -53,7 +54,10 @@ class ET5410:
 
 if __name__ == '__main__':
     p = ET5410()
+    start = time.time()
     while True:
-        print("%6.3f V, %6.3f A" % (p.measure_voltage(), p.measure_current()))
+        delta = time.time() - start
+        print("%6.1f s, %6.3f V, %6.3f A" % (time.time() - start, p.measure_voltage(), p.measure_current()))
         p.unlock()
-        time.sleep(1)
+        sys.stdout.flush()
+        time.sleep(1 - delta % 1)

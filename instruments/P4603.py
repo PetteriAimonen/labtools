@@ -1,6 +1,7 @@
 import pyvisa as visa
 import functools
 import time
+import sys
 
 class P4603:
     '''Interface to OWON P4603 power supply.'''
@@ -56,6 +57,12 @@ class P4603:
 
 if __name__ == '__main__':
     p = P4603()
+    start = time.time()
     while True:
-        print("%6.3f V, %6.3f A" % (p.measure_voltage(), p.measure_current()))
-        time.sleep(1)
+        try:
+            print("%12.3f s, %6.3f V, %6.3f A" % (time.time() - start, p.measure_voltage(), p.measure_current()))
+            sys.stdout.flush()
+            time.sleep(1)
+        except:
+            time.sleep(1)
+            print("%12.3f s, %6.3f V, %6.3f A" % (time.time() - start, p.measure_voltage(), p.measure_current()))

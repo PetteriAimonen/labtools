@@ -8,7 +8,7 @@ import click
 import pandas
 import time
 
-def measure_response(freq, delay = 1.0, autorange = False, memdepth = 120000):
+def measure_response(freq, delay = 1.0, autorange = False, memdepth = 120000, average = 1):
     '''Default measurement callback, returns amplitude and phase.
     Uses channel 1 as measurement channel and channel 2 as reference channel.'''
     instruments.awg.set_frequency(1, freq)
@@ -29,15 +29,28 @@ def measure_response(freq, delay = 1.0, autorange = False, memdepth = 120000):
         instruments.scope.set_channel_scale(2, a2 / 4.0)
         instruments.scope.run()
 
-    instruments.scope.force_trigger()
-    time.sleep(delay)
-    instruments.scope.stop()
+    avals = []
+    pvals = []
 
-    a1, p1 = instruments.scope.dft_at_freq(1, freq, use_raw = True)
-    a2, p2 = instruments.scope.dft_at_freq(2, freq, use_raw = True)
+    for i in range(average):
+        instruments.scope.run()
+        instruments.scope.force_trigger()
+        time.sleep(delay)
+        instruments.scope.stop()
 
-    phase_delta = ((p1 - p2) + 180.0) % 360.0 - 180.0
-    return (a1 / a2, phase_delta)
+        a1, p1 = instruments.scope.dft_at_freq(1, freq, use_raw = True)
+        a2, p2 = instruments.scope.dft_at_freq(2, freq, use_raw = True)
+        phase_delta = ((p1 - p2) + 180.0) % 360.0 - 180.0
+
+        avals.append(a1 / a2)
+        pvals.append(phase_delta)
+
+    if average >= 4:
+        # Do trimmed mean
+        avals.sort(); avals.pop(0); avals.pop(-1)
+        pvals.sort(); pvals.pop(0); pvals.pop(-1)
+
+    return (np.mean(avals), np.mean(pvals))
 
 def freqresp_iter(freq_min = 100.0, freq_max = 100.0e3, log_stepsdec = 10,
              lin_interval = None,
@@ -57,12 +70,12 @@ def freqresp_iter(freq_min = 100.0, freq_max = 100.0e3, log_stepsdec = 10,
 
     for freq in freqs:
         a, p = measure(freq, **kwargs)
-        dB = 10.0 * math.log10(a)
+        dB = 20.0 * math.log10(a)
         yield {'freq': freq, 'amplitude': a, 'dB': dB, 'phase': p}
 
 def freqresp(freq_min = 100.0, freq_max = 100.0e3, log_stepsdec = 10,
              lin_interval = None,
-             measure = measure_response, delay = 1.0, autorange = False, **kwargs):
+             measure = measure_response, delay = 1.0, autorange = False, average = 1, **kwargs):
     '''Measure frequency response using signal generator and oscilloscope.'''
 
     try:
@@ -78,7 +91,7 @@ def freqresp(freq_min = 100.0, freq_max = 100.0e3, log_stepsdec = 10,
         ax = fig.add_axes([0.2,0.2,0.8,0.6])
 
     data = []
-    for row in freqresp_iter(freq_min, freq_max, log_stepsdec, lin_interval, measure, delay = delay, autorange = autorange, **kwargs):
+    for row in freqresp_iter(freq_min, freq_max, log_stepsdec, lin_interval, measure, delay = delay, autorange = autorange, average = average, **kwargs):
         data.append(row)
 
         if ipython:
@@ -109,6 +122,7 @@ def freqresp(freq_min = 100.0, freq_max = 100.0e3, log_stepsdec = 10,
 @click.option('--lin_interval', default = None, type = float)
 @click.option('--delay', default = 1.0)
 @click.option('--autorange', is_flag = True)
+@click.option('--average', default = 1)
 def freqresp_cli(*args, **kwargs):
     click.echo("# Frequency(Hz)   Amplitude(abs)   Amplitude(dB)     Phase(deg)")
     for row in freqresp_iter(*args, **kwargs):

@@ -1,3 +1,5 @@
+#!/bin/env python
+
 import pyvisa as visa
 import functools
 import time
@@ -39,4 +41,22 @@ class XDM2041:
     def measure(self):
         return float(self.port.query("MEAS1?"))
     
+if __name__ == '__main__':
+    import sys
+
+    interval = 1.0
+    if len(sys.argv) > 1: interval = float(sys.argv[1])
+
+    x = XDM2041()
+    start = None
+    i = 0
     
+    while True:
+        value = x.measure()
+        timenow = time.time()
+        if not start: start = timenow
+        print("%10.3f %12.6f" % (timenow - start, value))
+        sys.stdout.flush()
+
+        i += 1
+        time.sleep(i * interval - (timenow - start))

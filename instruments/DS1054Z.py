@@ -133,7 +133,13 @@ class DS1054Z:
         '''
         response = self.port.query("MEAS:ITEM? %s,CHAN%d" %
                       (parameter, int(channel)))
-        return float(response)
+        try:
+            r = float(response)
+        except ValueError:
+            r = float('nan')
+        if r > 1e20: r = float('inf')
+        if r < -1e20: r = float('-inf')
+        return r
     
     def measure_rdelay(self, channel1, channel2):
         '''Measure rising edge delay between two channels'''
